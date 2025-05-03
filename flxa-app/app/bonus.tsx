@@ -114,6 +114,7 @@ export default function BonusScreen() {
         console.log(res);
         setBalance(Number(balance) - b.price)
         setIsModalOpen(false)
+        router.replace("/success")
       })
       .catch((err) => {
         console.log(err.request);

@@ -3,8 +3,8 @@ import CardItem from "@/components/CardItem";
 import { getLocalItem } from "@/utilities/asyncStorageHelper";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios, { isAxiosError } from "axios";
-import { useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useFocusEffect, useRouter } from "expo-router";
+import { useCallback, useEffect, useState } from "react";
 import {
   Image,
   Linking,
@@ -249,6 +249,19 @@ export default function DashboardScreen() {
     getBalance();
     getCards();
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      AsyncStorage.getItem("user", (err, res) => {
+        if (typeof res === "string") {
+          const parsed = JSON.parse(res);
+          setUser(parsed);
+        }
+      });
+      getBalance();
+      getCards();
+    }, [])
+  );
 
   return (
     <SafeAreaProvider>
