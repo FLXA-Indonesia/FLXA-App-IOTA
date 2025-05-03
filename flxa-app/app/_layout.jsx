@@ -132,6 +132,10 @@ export default function RootLayout() {
           name="bank-payment"
           options={{ headerShown: false }}
         />
+        <Stack.Screen
+          name="bonus"
+          options={{ headerShown: false }}
+        />
         <Stack.Screen name="+not-found" />
       </Stack>
       {showNavbar && <Navbar pathname={pathname} />}

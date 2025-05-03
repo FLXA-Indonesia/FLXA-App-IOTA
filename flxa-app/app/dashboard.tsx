@@ -16,9 +16,10 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { SafeAreaProvider,  SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import type { Provider } from "@/constants/Providers";
 import formatCurrency from "@/utilities/formatCurrency";
+import { Colors } from "@/constants/Colors";
 
 export type User = {
   name: string;
@@ -90,6 +91,7 @@ export default function DashboardScreen() {
     id: 0,
   });
   const [balance, setBalance] = useState<number | null>(null);
+  const [tokenBalance, setTokenBalance] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [cards, setCards] = useState<Card[] | null>(null);
   const router = useRouter();
@@ -112,6 +114,8 @@ export default function DashboardScreen() {
 
   const getBalance = async () => {
     const token = await getLocalItem("token");
+    const user = await getLocalItem("user");
+    const parsedUser = JSON.parse(user as string);
     setIsLoading(true);
     axios
       .get(process.env.EXPO_PUBLIC_FLXA_BALANCE_SERVICE + "/balance/view", {
@@ -121,6 +125,66 @@ export default function DashboardScreen() {
       })
       .then((res) => {
         setBalance(Number(res.data.balance_amount));
+      })
+      .catch((err: unknown) => {
+        if (isAxiosError(err)) {
+          const serverResponded = err.response != undefined;
+          const noResponse = err.request != undefined;
+          if (serverResponded) {
+            return ToastAndroid.show(err.response?.data.error, 1000);
+          }
+          if (noResponse) {
+            return ToastAndroid.show("Connection or network error", 1000);
+          }
+          return ToastAndroid.show(err.message, 1000);
+        }
+        if (err instanceof Error) {
+          ToastAndroid.show(err.message, 1000);
+        }
+        ToastAndroid.show("An error occurred", 1000);
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
+    axios
+      .get(process.env.EXPO_PUBLIC_FLXA_TOKEN_SERVICE + "/token/amount/" + parsedUser.id, {
+        headers: {
+          authorization: `token ${token}`,
+        },
+      })
+      .then((res) => {
+        console.log(res.data);
+        setTokenBalance(Number(res.data.data.amount));
+      })
+      .catch((err: unknown) => {
+        if (isAxiosError(err)) {
+          const serverResponded = err.response != undefined;
+          const noResponse = err.request != undefined;
+          if (serverResponded) {
+            return ToastAndroid.show(err.response?.data.error, 1000);
+          }
+          if (noResponse) {
+            return ToastAndroid.show("Connection or network error", 1000);
+          }
+          return ToastAndroid.show(err.message, 1000);
+        }
+        if (err instanceof Error) {
+          ToastAndroid.show(err.message, 1000);
+        }
+        ToastAndroid.show("An error occurred", 1000);
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
+    axios
+      .get(process.env.EXPO_PUBLIC_FLXA_TOKEN_SERVICE + "/token/amount/" + parsedUser.id, {
+        headers: {
+          authorization: `token ${token}`,
+        },
+      })
+      .then((res) => {
+        console.log(res.data);
+        setTokenBalance(Number(res.data.data.amount));
       })
       .catch((err: unknown) => {
         if (isAxiosError(err)) {
@@ -157,14 +221,14 @@ export default function DashboardScreen() {
       })
       .then((res) => {
         setCards(res.data ? res.data : []);
-        AsyncStorage.setItem("cards", JSON.stringify(res.data))
+        AsyncStorage.setItem("cards", JSON.stringify(res.data));
       })
       .catch((err) => {
         if (isAxiosError(err)) {
           const serverResponded = err.response != undefined;
           const noResponse = err.response != undefined;
           if (serverResponded) {
-            console.log(err.response)
+            console.log(err.response);
             return ToastAndroid.show("Server responded with error", 1000);
           }
           if (noResponse) {
@@ -203,9 +267,26 @@ export default function DashboardScreen() {
 
             <View style={{ paddingHorizontal: 16, width: "100%" }}>
               <View style={styles.topSectionInfo}>
-                <Text style={{ fontSize: 16, fontFamily: globals.fontStyles.fontRegular, paddingBottom: 20 }}>
-                  Hi, <Text style={{ fontFamily: globals.fontStyles.fontBold }}>{user.name}</Text>
-                </Text>
+                <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                  <Text style={{ fontSize: 16, fontFamily: globals.fontStyles.fontRegular, paddingBottom: 20 }}>
+                    Hi, <Text style={{ fontFamily: globals.fontStyles.fontBold }}>{user.name}</Text>
+                  </Text>
+                  {tokenBalance != null ? (
+                    <TouchableOpacity onPress={() => router.push("/bonus")}>
+                    <Text
+                      style={{
+                        fontSize: 16,
+                        fontFamily: globals.fontStyles.fontRegular,
+                        color: globals.colors.purple.primary,
+                      }}
+                    >
+                      <Text style={{ fontFamily: globals.fontStyles.fontBold }}>
+                        <Text style={{ fontSize: 25 }}>{tokenBalance}</Text>$FLXA
+                      </Text>
+                    </Text>
+                  </TouchableOpacity>
+                  ) : <View style={{backgroundColor: globals.colors.purple.secondary, height: 40, width: 100, borderRadius: 7}}></View>}
+                </View>
 
                 <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end" }}>
                   {balance != null ? (

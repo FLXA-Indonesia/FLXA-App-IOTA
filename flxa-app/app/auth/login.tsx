@@ -32,8 +32,8 @@ const loginScreenStyles = StyleSheet.create({
 });
 
 export default function LoginScreen() {
-  const [phoneNumber, setPhoneNumber] = useState("");
-  const [secretString, setSecretString] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("+6287839448450");
+  const [secretString, setSecretString] = useState("yF6p3iM1");
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const router = useRouter();
 
