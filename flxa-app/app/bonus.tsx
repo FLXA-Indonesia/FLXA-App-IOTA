@@ -5,7 +5,17 @@ import { getLocalItem } from "@/utilities/asyncStorageHelper";
 import formatCurrency from "@/utilities/formatCurrency";
 import axios, { isAxiosError } from "axios";
 import { useEffect, useState } from "react";
-import { ScrollView, StyleSheet, Text, ToastAndroid, TouchableOpacity, View, Image, Pressable } from "react-native";
+import {
+  ScrollView,
+  StyleSheet,
+  Text,
+  ToastAndroid,
+  TouchableOpacity,
+  View,
+  Image,
+  Pressable,
+  Dimensions,
+} from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import type { TopUpOption } from "@/components/TopUpOptionsRow";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -36,6 +46,15 @@ export default function BonusScreen() {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isLoadingBonus, setIsLoadingBonus] = useState<boolean>(true);
   const [selectedProvider, setSelectedProvider] = useState<string | null>("58fbf693-3363-4066-9ac3-489288d950c9");
+  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  const [selectedBonus, setSelectedBonus] = useState<Bonus>({
+    description: "",
+    id: 0,
+    price: 9999,
+    title: "",
+    type: "",
+    valid_until: "",
+  });
   const providerOptions: DropdownOption[] = [
     {
       label: "Indosat",
@@ -50,6 +69,10 @@ export default function BonusScreen() {
       value: "0dbfa48b-4d97-4ce3-acbc-84910b911e1e",
     },
   ];
+  function getSelectedProviderLabel(): string | undefined {
+    const selected = providerOptions.find((provider) => provider.value === selectedProvider);
+    return selected?.label;
+  }
   const logoMap: Record<string, ImageSourcePropType> = {
     Telkomsel: require("@/assets/images/TselLogo.png"),
     Indosat: require("@/assets/images/IndosatLogo.png"),
@@ -57,12 +80,10 @@ export default function BonusScreen() {
   };
 
   function GetBonuses() {
-    console.log(process.env.EXPO_PUBLIC_FLXA_TOKEN_SERVICE + "/token/bonus?operatorId=" + selectedProvider);
     setIsLoadingBonus(true);
     axios
       .get(process.env.EXPO_PUBLIC_FLXA_TOKEN_SERVICE + "/token/bonus?operatorId=" + selectedProvider)
       .then((res) => {
-        // console.log(res.data.data);
         setBonuses(res.data.data);
       })
       .catch((err) => console.log(err))
@@ -71,26 +92,42 @@ export default function BonusScreen() {
       });
   }
 
-  async function handleRedeem(bonusId: number) {
+  async function confirmRedeem(b: Bonus) {
     const user = await getLocalItem("user");
     const parsedUser = JSON.parse(user as string);
     const cards = await getLocalItem("cards");
     const parsedCards = JSON.parse(cards as string);
-    console.log({
-      userId: parsedUser.id,
-      bonusId: String(bonusId),
-      phone: parsedCards[0].card_phone_number
-    })  
-    axios.post(process.env.EXPO_PUBLIC_FLXA_TOKEN_SERVICE + "/token/redeem", {
-      userId: parsedUser.id,
-      bonusId: String(bonusId),
-      phone: parsedCards[0].card_phone_number,
-    }).then((res) => {
-      console.log(res)
-    })
-    .catch((err) => {
-      console.log(err.request)
-    })
+
+    if (b.price > Number(balance)) {
+      ToastAndroid.show("Insufficient token", 1000);
+      return;
+    }
+
+    setIsLoading(true)
+    axios
+      .post(process.env.EXPO_PUBLIC_FLXA_TOKEN_SERVICE + "/token/redeem", {
+        userId: parsedUser.id,
+        bonusId: String(b.id),
+        phone: parsedCards[0].card_phone_number,
+      })
+      .then((res) => {
+        console.log(res);
+        setBalance(Number(balance) - b.price)
+        setIsModalOpen(false)
+      })
+      .catch((err) => {
+        console.log(err.request);
+        ToastAndroid.show("An error occurred", 1000);
+      })
+      .finally(() => {
+        setIsLoading(false)
+      })
+  }
+
+  function onBonusPress(b: Bonus): void {
+    console.log(b);
+    setSelectedBonus(b);
+    setIsModalOpen(true);
   }
 
   const styles = StyleSheet.create({
@@ -275,7 +312,6 @@ export default function BonusScreen() {
         },
       })
       .then((res) => {
-        console.log(res.data);
         setBalance(Number(res.data.data.amount));
       })
       .catch((err: unknown) => {
@@ -307,7 +343,7 @@ export default function BonusScreen() {
   return (
     <SafeAreaProvider>
       <SafeAreaView style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={styles.main}>
+        <ScrollView contentContainerStyle={[styles.main, { height: isModalOpen ? "auto" : "auto" }]}>
           <TouchableOpacity
             onPress={() => router.back()}
             style={{
@@ -404,52 +440,237 @@ export default function BonusScreen() {
                 !isLoadingBonus &&
                 bonuses.map((b) => {
                   return (
-                    <Pressable
-                      onPress={() => {
-                        console.log(b)
-                        handleRedeem(b.id)
-                      }}
-                      key={b.title}
-                      style={{
-                        flexDirection: "column",
-                        alignContent: "center",
-                        justifyContent: "center",
-                        // backgroundColor: "rgba(255,0,0,.5)",
-                        minHeight: 100,
-                        padding: 10,
-                        borderWidth: 0.3,
-                        borderColor: globals.colors.neutral.gray,
-                        borderRadius: 7,
-                      }}
-                    >
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ fontFamily: globals.fontStyles.fontBold, fontSize: 18 }}>{b.title}</Text>
-                        <Text style={{ fontFamily: globals.fontStyles.fontRegular, fontSize: 15, paddingBottom: 10 }}>
-                          {b.description}
-                        </Text>
-                      </View>
-                      <View style={{ alignContent: "flex-end", flex: 1 }}>
-                        <Text
-                          style={{
-                            fontSize: 20,
-                            fontFamily: globals.fontStyles.fontBold,
-                            color: globals.colors.purple.primary,
-                            width: "auto",
-                            flex: 1,
-                            textAlign: "right",
-                          }}
-                        >
-                          <Text style={{ fontSize: 10 }}>$FLXA </Text>
-                          {b.price}
-                        </Text>
-                      </View>
-                    </Pressable>
+                    <BonusItem
+                      key={b.id}
+                      bonus={b}
+                      handlerCallback={() => onBonusPress(b)}
+                    />
                   );
                 })}
             </View>
           </View>
         </ScrollView>
+        {isModalOpen && (
+          <View
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: "rgba(0,0,0,0.3)",
+              justifyContent: "center",
+              alignItems: "center",
+            }}
+          >
+            <Pressable
+              onPress={() => setIsModalOpen(false)}
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+              }}
+            />
+            <View
+              style={{
+                padding: 20,
+                backgroundColor: "#FFF",
+                alignSelf: "center",
+                width: "auto",
+                borderRadius: 12,
+                maxWidth: 400,
+              }}
+            >
+              <Text
+                style={{
+                  fontFamily: globals.fontStyles.fontBold,
+                  fontSize: 20,
+                  marginBottom: 16,
+                  textAlign: "center",
+                }}
+              >
+                Confirm Redemption
+              </Text>
+
+              <View
+                style={{
+                  backgroundColor: "#f5f5f5",
+                  padding: 16,
+                  borderRadius: 8,
+                  marginBottom: 16,
+                }}
+              >
+                <Text
+                  style={{
+                    fontFamily: globals.fontStyles.fontBold,
+                    fontSize: 18,
+                    marginBottom: 8,
+                  }}
+                >
+                  {selectedBonus.title}
+                </Text>
+
+                <View style={{ marginBottom: 12 }}>
+                  <Text
+                    style={{
+                      fontFamily: globals.fontStyles.fontRegular,
+                      color: "#666",
+                      fontSize: 12,
+                      marginBottom: 4,
+                    }}
+                  >
+                    PROVIDER
+                  </Text>
+                  <Text style={{ fontFamily: globals.fontStyles.fontRegular }}>{getSelectedProviderLabel()}</Text>
+                </View>
+
+                <View style={{ marginBottom: 12 }}>
+                  <Text
+                    style={{
+                      fontFamily: globals.fontStyles.fontRegular,
+                      color: "#666",
+                      fontSize: 12,
+                      marginBottom: 4,
+                    }}
+                  >
+                    DESCRIPTION
+                  </Text>
+                  <Text style={{ fontFamily: globals.fontStyles.fontRegular }}>{selectedBonus.description}</Text>
+                </View>
+
+                <View
+                  style={{
+                    borderTopWidth: 1,
+                    borderTopColor: "#ddd",
+                    paddingTop: 12,
+                    marginTop: 12,
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontFamily: globals.fontStyles.fontRegular,
+                      color: "#666",
+                      fontSize: 12,
+                      marginBottom: 4,
+                    }}
+                  >
+                    COST
+                  </Text>
+                  <Text
+                    style={{
+                      fontFamily: globals.fontStyles.fontBold,
+                      color: globals.colors.purple.primary,
+                      fontSize: 24,
+                    }}
+                  >
+                    {selectedBonus.price} $FLXA
+                  </Text>
+                </View>
+              </View>
+
+              <Text
+                style={{
+                  fontFamily: globals.fontStyles.fontRegular,
+                  color: "#FF0000",
+                  textAlign: "center",
+                  // color: "#666",
+                  marginBottom: 20,
+                }}
+              >
+                ⚠️ This action cannot be undone
+              </Text>
+
+              <View style={{ flexDirection: "row", gap: 12 }}>
+                <Pressable
+                  onPress={() => setIsModalOpen(false)}
+                  style={{
+                    flex: 1,
+                    padding: 12,
+                    backgroundColor: "#f0f0f0",
+                    borderRadius: 8,
+                    alignItems: "center",
+                    opacity: isLoading ? .5 : 1
+                  }}
+                  disabled={isLoading}
+                >
+                  <Text style={{ fontFamily: globals.fontStyles.fontRegular }}>Cancel</Text>
+                </Pressable>
+
+                <Pressable
+                  onPress={() => confirmRedeem(selectedBonus)}
+                  style={{
+                    flex: 1,
+                    padding: 12,
+                    backgroundColor: globals.colors.purple.primary,
+                    borderRadius: 8,
+                    alignItems: "center",
+                    opacity: isLoading ? .5 : 1
+                  }}
+                  disabled={isLoading}
+                >
+                  <Text
+                    style={{
+                      fontFamily: globals.fontStyles.fontBold,
+                      color: "#FFF",
+                    }}
+                  >
+                    Confirm
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        )}
       </SafeAreaView>
     </SafeAreaProvider>
+  );
+}
+
+function BonusItem({ bonus, handlerCallback }: { bonus: Bonus; handlerCallback: (b: Bonus) => void }) {
+  const [touched, setTouched] = useState<boolean>(false);
+
+  return (
+    <Pressable
+      onPressIn={() => setTouched(true)}
+      onPressOut={() => setTouched(false)}
+      onPress={() => handlerCallback(bonus)}
+      key={bonus.title}
+      style={{
+        flexDirection: "column",
+        alignContent: "center",
+        justifyContent: "center",
+        // backgroundColor: "rgba(255,0,0,.5)",
+        minHeight: 100,
+        padding: 10,
+        borderWidth: 0.3,
+        borderColor: globals.colors.neutral.gray,
+        borderRadius: 7,
+        backgroundColor: touched ? "#DEDEDE" : "#FFF",
+      }}
+    >
+      <View style={{ flex: 1 }}>
+        <Text style={{ fontFamily: globals.fontStyles.fontBold, fontSize: 18 }}>{bonus.title}</Text>
+        <Text style={{ fontFamily: globals.fontStyles.fontRegular, fontSize: 15, paddingBottom: 10 }}>
+          {bonus.description}
+        </Text>
+      </View>
+      <View style={{ alignContent: "flex-end", flex: 1 }}>
+        <Text
+          style={{
+            fontSize: 20,
+            fontFamily: globals.fontStyles.fontBold,
+            color: globals.colors.purple.primary,
+            width: "auto",
+            flex: 1,
+            textAlign: "right",
+          }}
+        >
+          <Text style={{ fontSize: 10 }}>$FLXA </Text>
+          {bonus.price}
+        </Text>
+      </View>
+    </Pressable>
   );
 }
