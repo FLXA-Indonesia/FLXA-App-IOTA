@@ -43,7 +43,7 @@ expo start
 
 This will launch the Expo development tools in your browser. You can then run the application on an emulator, simulator, or physical device using the Expo Go app.
 
-### Build File
+## Build File
 Build file is available in the root directory. Please refer to [FLXA App](FLXA.apk) and install it on your Android device. The iOS build is not available yet.
 
 ## Contributing
