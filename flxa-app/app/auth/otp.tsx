@@ -84,7 +84,6 @@ export default function OtpScreen() {
       const addedPhoneNumber = await getLocalItem("addedPhoneNumber");
       const cleanedPhoneNumber = JSON.parse(addedPhoneNumber as string);
       const token = await getLocalItem("token");
-      console.log(otpCode);
       setIsLoading(true);
       axios
         .post(

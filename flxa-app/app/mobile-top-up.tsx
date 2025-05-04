@@ -59,6 +59,7 @@ export default function MobileCreditTopUpScreen() {
   });
 
   const [amount, setAmount] = useState<number>(0);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
   const router = useRouter();
 
   const { phoneNumber: rawPhoneNumber, provider } = useLocalSearchParams<{ phoneNumber: string, provider: string }>();
@@ -69,9 +70,14 @@ export default function MobileCreditTopUpScreen() {
   };
 
   const handleContinue = async () => {
+    if (isLoading) {
+      ToastAndroid.show("Please wait...", 1000)
+      return
+    }
     if (amount < 1000) {
       return ToastAndroid.show("Minimum top up amount is Rp1.000", 1000);
     }
+    setIsLoading(true)
     const token = await getLocalItem("token");
     axios.post(process.env.EXPO_PUBLIC_FLXA_BALANCE_SERVICE + '/transaction/charge/mobile-credit', {
         phoneNumber,
@@ -88,6 +94,9 @@ export default function MobileCreditTopUpScreen() {
     .catch((err) => {
         console.log(err);
         ToastAndroid.show("Balance insufficient!", 1000);
+    })
+    .finally(() => {
+      setIsLoading(false)
     })
   };
 
@@ -160,6 +169,8 @@ export default function MobileCreditTopUpScreen() {
               <Button
                 onPress={handleContinue}
                 type="primary"
+                disabled={isLoading}
+                style={{opacity: isLoading || amount < 1000 ? .7 : 1}}
               >
                 <Text style={[buttonTextStyles.primary, { fontSize: 16 }]}>Continue</Text>
               </Button>
